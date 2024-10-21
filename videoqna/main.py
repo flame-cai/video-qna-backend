@@ -2,23 +2,17 @@ import uuid
 import json
 import threading
 
-from flask import Flask, session, request
+from flask import Blueprint, request
 from flask_cors import CORS
 from redis import Redis
 
-from video_qna_generator import generate_video_qna
-from answer_evaluator import evaluate_answer
+from videoqna.video_qna_generator import generate_video_qna
+from videoqna.answer_evaluator import evaluate_answer
 
-app = Flask(__name__)
+bp = Blueprint('main', __name__)
 redis = Redis(host='localhost', port=6379, db=0)
 
-app.config.from_mapping(
-    SECRET_KEY = 'secret',
-)
-
-CORS(app)
-
-@app.route("/")
+@bp.route("/")
 def hello():
     return "Video QnA Generator"
 
@@ -29,7 +23,7 @@ def qna_generator_task(task_id, url):
     except Exception as e:
         redis.set(task_id, json.dumps({"status": "failed", "error": str(e)}))
 
-@app.route("/generate-video", methods=["POST"])
+@bp.route("/generate-video", methods=["POST"])
 def get_video_qna():
     task_id = str(uuid.uuid4())
     redis.set(task_id, json.dumps({"status": "processing"})) 
@@ -45,7 +39,7 @@ def get_video_qna():
             "message": "No URL provided in the query parameters.",
         }, 400
 
-@app.route('/generate-video/<task_id>', methods=['GET'])
+@bp.route('/generate-video/<task_id>', methods=['GET'])
 def task_status(task_id):
     task_data = redis.get(task_id)
     if task_data:
@@ -61,7 +55,7 @@ def task_status(task_id):
     else:
         return {"error": "Task not found"}, 404
     
-@app.route("/evaluate-answer", methods=["POST"])
+@bp.route("/evaluate-answer", methods=["POST"])
 def do_answer_validation():
     data = request.json
     question = data.get("  ")
@@ -75,7 +69,6 @@ def do_answer_validation():
             "data": answer_evaluation.model_dump(),
         }
         print(response)
-        print(answer_evaluation.model_dump())
         return response, 200
     else:
         return {
