@@ -114,42 +114,62 @@ def read_transcript_from_file(file_path):
         transcript = file.read()
     return transcript
 
-def generate_learning_activities(transcript, output_file_path):
+def generate_learning_activities(transcript, output_file_path, question_format):
     """
     Sends a transcript to ChatGPT to generate ideas for fun learning activities.
     """
     prompt_text = transcript[:min(len(transcript), 8000)]  # Adjust based on your token budget
-    messages = [
-        {
-            "role": "system",
-            "content": "You are a helpful chapter generator for video transcripts. Your task is to analyze the transcript content and identify changes in topic or content to generate chapters. For each identified chapter, generate a concise and descriptive chapter title or summary that captures the main topic or content of that chapter. Additionally, generate up to one question related to the content of each chapter to encourage critical thinking and understanding. Also, generate the answer to the question you will generate for each chapter. Present the output in the following format without any special characters or formatting: 'Chapter No. -', 'Chapter Name -', 'Chapter Start time -', 'Chapter End Time -', 'Chapter Question -', 'Chapter Answer -'. Ensure that each chapter detail is clearly separated and presented in a straightforward manner. Ensure that the discussion on each topic is finished and then generate the aforementioned things. Also, Ensure both the Question and the answer are short in length and concise and are evenly spaced out between topics. Segment topics into relevant chapters only."
-        },
-        {
-            "role": "user",
-            "content": f"Based on the following transcript, generate chapter titles, descriptions, questions, answers and the requested information in the specified format:\n\n{prompt_text}"
-        }
-    ]
 
-    api_key = os.getenv("API_KEY") #Enter your api key here
-    client = OpenAI(api_key=api_key)
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=messages,
-        temperature=0.5,
-        max_tokens=1000,
-        top_p=1.0,
-        frequency_penalty=0.0,
-        presence_penalty=0.0
-    )
+    if question_format == "subjective":
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful chapter generator for video transcripts. Your task is to analyze the transcript content and identify changes in topic or content to generate chapters. For each identified chapter, generate a concise and descriptive chapter title or summary that captures the main topic or content of that chapter. Additionally, generate up to one question related to the content of each chapter to encourage critical thinking and understanding. Also, generate the answer to the question you will generate for each chapter. Present the output in the following format without any special characters or formatting: 'Chapter No. -', 'Chapter Name -', 'Chapter Start time -', 'Chapter End Time -', 'Chapter Question -', 'Chapter Answer -'. Ensure that each chapter detail is clearly separated and presented in a straightforward manner. Ensure that the discussion on each topic is finished and then generate the aforementioned things. Also, Ensure both the Question and the answer are short in length and concise and are evenly spaced out between topics. Segment topics into relevant chapters only."
+            },
+            {
+                "role": "user",
+                "content": f"Based on the following transcript, generate chapter titles, descriptions, questions, answers and the requested information in the specified format:\n\n{prompt_text}"
+            }
+        ]
 
-    if response.choices and len(response.choices) > 0:
-        last_message = response.choices[0].message.content
-        write_output_to_file(last_message, output_file_path)
-        print(f"Suggested Learning Activities written to {output_file_path}")
-        chapters = parse_chapter_info_from_file(output_file_path)
-        return chapters
-    else:
-        return "No activities could be generated."
+        api_key = os.getenv("API_KEY") #Enter your api key here
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            temperature=0.5,
+            max_tokens=1000,
+            top_p=1.0,
+            frequency_penalty=0.0,
+            presence_penalty=0.0
+        )
+
+        if response.choices and len(response.choices) > 0:
+            last_message = response.choices[0].message.content
+            write_output_to_file(last_message, output_file_path)
+            print(f"Suggested Learning Activities written to {output_file_path}")
+            chapters = parse_chapter_info_from_file(output_file_path)
+            return chapters
+        else:
+            return "No activities could be generated."
+    elif question_format == "mcq":
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a helpful chapter generator for video transcripts. Your task is to analyze the transcript content to generate chapters. For each identified chapter, generate a concise and descriptive chapter title or summary that captures the main topic or content of that chapter. Additionally, generate up to one question related to the content of each chapter to encourage critical thinking and understanding. Also, generate multiple options to the question you will generate for each chapter. Ensure that each chapter detail is clearly separated and presented in a straightforward manner. Ensure that the discussion on each topic is finished and then generate the aforementioned things. Also, Ensure both the Question and the options are short in length and concise and are evenly spaced out between topics. Segment topics into relevant chapters only."
+            },
+            {
+                "role": "user",
+                "content": f"Based on the following transcript, generate chapter titles, descriptions, questions, answers and the requested information in the specified format:\n\n{prompt_text}"
+            }
+        ]
+        client = OpenAI(api_key=os.getenv('API_KEY'))
+        completion = client.beta.chat.completions.parse(
+            model="gpt-4o-2024-08-06",
+            messages=messages,
+            response_format=MCQCollection
+        )
+        
 
 def write_output_to_file(activities, output_file_path):
     """
@@ -203,7 +223,7 @@ def generate_video_qna(youtube_url, question_format):
     output_path = os.path.join(input_dir, "learning_activities.txt")
     
     #generate chapters
-    chapters = generate_learning_activities(transcript, output_path)
+    chapters = generate_learning_activities(transcript, output_path, question_format)
 
     # chapters = [["1", "Introduction to Java", "00:00:00", "00:00:11", "Who designed Java and when?", "James Gosling designed Java in 1990."], ["2", "Java's Versatility and Use Cases", "00:00:11", "00:00:31", "What are some of the applications and systems powered by Java?", "Java powers enterprise web apps, big data pipelines with Hadoop, mobile apps on Android, and NASA's Maestro Mars Rover controller."], ["3", "Java's Compilation and Execution", "00:00:31", "00:00:48", "How does Java achieve platform independence?", "Java compiles to bytecode which can run on any operating system via the Java Virtual Machine (JVM)."], ["4", "Java's Language Features", "00:00:48", "00:01:09", "What high-level features does Java provide?", "Java provides garbage collection, runtime type checking, and reflection."], ["5", "Getting Started with Java", "00:01:09", "00:01:24", "What is required to start writing a Java program?", "Install the Java Development Kit (JDK) and create a file ending in .java with a class containing a main method."], ["6", "Java Syntax and Structure", "00:01:24", "00:01:59", "How do you define a variable and a method in Java?", "Define a variable with a type, name, and value. Define a method with the public and static keywords, a type, name, and return value."], ["7", "Compiling and Running Java Programs", "00:01:59", "00:02:10", "What are the steps to compile and run a Java program?", "Use the compiler to generate a .class file containing bytecode, then use the Java command to run it with the JVM."], ["8", "Conclusion and Call to Action", "00:02:10", "00:02:24", "What does the speaker promise if the video reaches 100,000 likes?", "The speaker promises to create a full Java tutorial."]]
 
