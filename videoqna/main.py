@@ -16,9 +16,9 @@ redis = Redis(host='localhost', port=6379, db=0)
 def hello():
     return "Video QnA Generator"
 
-def qna_generator_task(task_id, url):
+def qna_generator_task(task_id, url, question_format):
     try:
-        chapters = generate_video_qna(url)
+        chapters = generate_video_qna(url, question_format)
         redis.set(task_id, json.dumps({"status": "completed", "data": chapters}))
     except Exception as e:
         redis.set(task_id, json.dumps({"status": "failed", "error": str(e)}))
@@ -28,8 +28,9 @@ def get_video_qna():
     task_id = str(uuid.uuid4())
     redis.set(task_id, json.dumps({"status": "processing"})) 
     url = request.json.get("url")
+    question_format = request.json.get("question_format")
     if url:
-        thread = threading.Thread(target=qna_generator_task, args=(task_id, url))
+        thread = threading.Thread(target=qna_generator_task, args=(task_id, url, question_format))
         thread.start()
         return {"taskId": task_id}, 202
 

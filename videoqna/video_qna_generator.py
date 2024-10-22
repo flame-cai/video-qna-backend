@@ -6,16 +6,17 @@ import sys
 import csv
 import re
 import subprocess
-
-from pytube import YouTube
+import yt_dlp
 
 
 def sanitize_filename(title):
     return re.sub(r'[^a-zA-Z0-9]', '_', title)
 
 def download_media_from_youtube(youtube_url, ffmpeg_path="/usr/bin/ffmpeg"):
-    yt = YouTube(youtube_url)
-    video_title = sanitize_filename(yt.title)
+    # yt = YouTube(youtube_url)
+    with yt_dlp.YoutubeDL() as ydl:
+        info = ydl.extract_info(youtube_url, download=False)
+        video_title = sanitize_filename(ydl.sanitize_info(info)["fulltitle"])
     download_path = f"./log/{video_title}"
     audio_output_file = os.path.join(download_path, f"{video_title}_audio.wav")
 
@@ -51,17 +52,6 @@ def transcribe_audio_with_whisper(audio_file, model_size="base", language="Engli
     srt_file_path = os.path.join(audio_path, srt_file_name)
     print("srt_path:", srt_file_path)
     return srt_file_path
-
-def transcribe(youtube_url):
-    print("Downloading media from YouTube...")
-    audio_file = download_media_from_youtube(youtube_url)
-    print(f"Audio File: {audio_file}")
-
-    print("Transcribing audio with Whisper...")
-    srt_path = transcribe_audio_with_whisper(audio_file)
-
-    print("Transcription completed.")
-    return srt_path
 
 def validate_srt(file_path):
     """
@@ -124,7 +114,7 @@ def read_transcript_from_file(file_path):
         transcript = file.read()
     return transcript
 
-def generate_learning_activities(transcript):
+def generate_learning_activities(transcript, output_file_path):
     """
     Sends a transcript to ChatGPT to generate ideas for fun learning activities.
     """
@@ -154,7 +144,10 @@ def generate_learning_activities(transcript):
 
     if response.choices and len(response.choices) > 0:
         last_message = response.choices[0].message.content
-        return last_message.strip()
+        write_output_to_file(last_message, output_file_path)
+        print(f"Suggested Learning Activities written to {output_file_path}")
+        chapters = parse_chapter_info_from_file(output_file_path)
+        return chapters
     else:
         return "No activities could be generated."
 
@@ -168,19 +161,6 @@ def write_output_to_file(activities, output_file_path):
     """
     with open(output_file_path, 'w', encoding='utf-8') as file:
         file.write(activities)
-
-def summarized_text(file_path, output_file_path):
-    """
-    Orchestrates the process of reading a transcript and generating learning activities,
-    then writes the activities to a specified text file.
-    """
-    transcript = read_transcript_from_file(file_path)
-    input_dir = os.path.dirname(file_path)
-    output_path = os.path.join(input_dir, output_file_path)
-    activities = generate_learning_activities(transcript)
-    write_output_to_file(activities, output_path)
-    print(f"Suggested Learning Activities written to {output_file_path}")
-    return output_path
 
 def parse_chapter_info_from_file(input_file_path):
     # Read the contents of the file
@@ -201,58 +181,29 @@ def parse_chapter_info_from_file(input_file_path):
 
     return chapter_pattern.findall(text)
 
-def write_to_csv(chapters, output_path):
-    with open(output_path, 'w', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['Chapter No.', 'Chapter Name', 'Chapter Start time', 'Chapter End Time', 'Chapter Question', 'Chapter Answer']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+def generate_video_qna(youtube_url, question_format):
 
-        writer.writeheader()
-        for chapter in chapters:
-            writer.writerow({
-                'Chapter No.': chapter[0],
-                'Chapter Name': chapter[1],
-                'Chapter Start time': chapter[2],
-                'Chapter End Time': chapter[3],
-                'Chapter Question': chapter[4],
-                'Chapter Answer': chapter[5]
-            })
+    # Download Audio File
+    print("Downloading media from YouTube...")
+    audio_file = download_media_from_youtube(youtube_url)
+    print(f"Audio File: {audio_file}")
 
-def output_csv(text_summary_path):
-    # The path to the input file uploaded by the user
-    # input_file_path = 'learning_activities.txt'  # This will be replaced by the path of the uploaded file
-
-    # Parse the chapter information from the file
-    chapters = parse_chapter_info_from_file(text_summary_path)
-
-    # Specify the path to save the output CSV file
-
-    csv_path = 'chapter_details_from_file2.csv'
-    text_summary_dir = os.path.dirname(text_summary_path)
-    output_csv_path = os.path.join(text_summary_dir, csv_path)
-    # Write the chapter information to a CSV file
-    write_to_csv(chapters, output_csv_path)
-
-    # Output the path to the created CSV file
-    return output_csv_path, chapters
-
-def generate_video_qna(youtube_url):
-
-    #Enter the url to the youtube video
-    subtitle_file_path = transcribe(youtube_url)
+    # Transcribe Audio file to srt using whisper
+    print("Transcribing audio with Whisper...")
+    subtitle_file_path = transcribe_audio_with_whisper(audio_file)
+    print("Transcription completed.")
     print(subtitle_file_path) 
 
-    # Converting .srt to text file
+    # convert .srt to .txt
     text_file_path = convert_srt_to_txt(subtitle_file_path)
     print("Text file saved at", text_file_path)
 
-    #Calling OpenAI
-    output_file_path = "learning_activities.txt"
+    transcript = read_transcript_from_file(text_file_path)
+    input_dir = os.path.dirname(text_file_path)
+    output_path = os.path.join(input_dir, "learning_activities.txt")
     
-    # Desired path for the output file
-    text_summary_path = summarized_text(text_file_path, output_file_path)
-
-    # Run the main function and get the path to the output CSV file
-    output_csv_file_path, chapters = output_csv(text_summary_path)
+    #generate chapters
+    chapters = generate_learning_activities(transcript, output_path)
 
     # chapters = [["1", "Introduction to Java", "00:00:00", "00:00:11", "Who designed Java and when?", "James Gosling designed Java in 1990."], ["2", "Java's Versatility and Use Cases", "00:00:11", "00:00:31", "What are some of the applications and systems powered by Java?", "Java powers enterprise web apps, big data pipelines with Hadoop, mobile apps on Android, and NASA's Maestro Mars Rover controller."], ["3", "Java's Compilation and Execution", "00:00:31", "00:00:48", "How does Java achieve platform independence?", "Java compiles to bytecode which can run on any operating system via the Java Virtual Machine (JVM)."], ["4", "Java's Language Features", "00:00:48", "00:01:09", "What high-level features does Java provide?", "Java provides garbage collection, runtime type checking, and reflection."], ["5", "Getting Started with Java", "00:01:09", "00:01:24", "What is required to start writing a Java program?", "Install the Java Development Kit (JDK) and create a file ending in .java with a class containing a main method."], ["6", "Java Syntax and Structure", "00:01:24", "00:01:59", "How do you define a variable and a method in Java?", "Define a variable with a type, name, and value. Define a method with the public and static keywords, a type, name, and return value."], ["7", "Compiling and Running Java Programs", "00:01:59", "00:02:10", "What are the steps to compile and run a Java program?", "Use the compiler to generate a .class file containing bytecode, then use the Java command to run it with the JVM."], ["8", "Conclusion and Call to Action", "00:02:10", "00:02:24", "What does the speaker promise if the video reaches 100,000 likes?", "The speaker promises to create a full Java tutorial."]]
 

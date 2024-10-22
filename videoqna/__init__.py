@@ -17,11 +17,6 @@ def create_app(test_config=None):
     else:
         app.config.from_mapping(test_config)
     
-    try:
-        os.makedirs(app.instance_path)
-    except OSError:
-        pass
-    
     from . import main
     app.register_blueprint(main.bp)
     return app
