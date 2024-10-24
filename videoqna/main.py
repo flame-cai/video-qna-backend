@@ -18,8 +18,8 @@ def hello():
 
 def qna_generator_task(task_id, url, question_format):
     try:
-        chapters = generate_video_qna(url, question_format)
-        redis.set(task_id, json.dumps({"status": "completed", "data": chapters}))
+        chapters, duration = generate_video_qna(url, question_format)
+        redis.set(task_id, json.dumps({"status": "completed", "data": {"chapters" : chapters, "duration" : duration}}))
     except Exception as e:
         redis.set(task_id, json.dumps({"status": "failed", "error": str(e)}))
 
