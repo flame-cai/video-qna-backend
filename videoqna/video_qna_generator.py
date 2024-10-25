@@ -1,8 +1,6 @@
-import pandas as pd
 import subprocess
 import os
 import sys
-import csv
 import re
 import subprocess
 import yt_dlp
