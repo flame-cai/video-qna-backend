@@ -118,7 +118,7 @@ def read_transcript_from_file(file_path):
         transcript = file.read()
     return transcript
 
-def generate_learning_activities(transcript, output_file_path, question_format):
+def generate_learning_activities(transcript, question_format):
     """
     Sends a transcript to ChatGPT to generate ideas for fun learning activities.
     """
@@ -172,36 +172,6 @@ def generate_learning_activities(transcript, output_file_path, question_format):
         elif chapters_response.refusal:
             return chapters_response
 
-def write_output_to_file(activities, output_file_path):
-    """
-    Writes the generated learning activities to a specified text file.
-
-    Args:
-    - activities (str): The generated activities to write.
-    - output_file_path (str): The path of the output text file.
-    """
-    with open(output_file_path, 'w', encoding='utf-8') as file:
-        file.write(activities)
-
-def parse_chapter_info_from_file(input_file_path):
-    # Read the contents of the file
-    print(input_file_path)
-    with open(input_file_path, 'r', encoding='utf-8') as file:
-        text = file.read()
-    print(text)
-    # Regular expression to capture the relevant chapter details
-    chapter_pattern = re.compile(
-        r'Chapter No\. - (\d+)\s*'  # Capture chapter number
-        r'Chapter Name - (.*?)\s*'  # Capture chapter name
-        r'Chapter Start time - (.*?)\s*'  # Capture start time
-        r'Chapter End Time - (.*?)\s*'  # Capture end time
-        r'Chapter Question - (.*?)\s*'  # Capture question
-        r'Chapter Answer - (.*?)\s*(?=Chapter No\. - \d+|$)',  # Capture answer, lookahead for next chapter or end of string
-        re.DOTALL  # Dot matches newline as well
-    )
-
-    return chapter_pattern.findall(text)
-
 def generate_video_qna(youtube_url, question_format):
 
     # Download Audio File
@@ -220,11 +190,9 @@ def generate_video_qna(youtube_url, question_format):
     print("Text file saved at", text_file_path)
 
     transcript = read_transcript_from_file(text_file_path)
-    input_dir = os.path.dirname(text_file_path)
-    output_path = os.path.join(input_dir, "learning_activities.txt")
     
     #generate chapters
-    chapters = generate_learning_activities(transcript, output_path, question_format)
+    chapters = generate_learning_activities(transcript, question_format)
     print(chapters)
 
     # chapters = [["1", "Introduction to Java", "00:00:00", "00:00:11", "Who designed Java and when?", "James Gosling designed Java in 1990."], ["2", "Java's Versatility and Use Cases", "00:00:11", "00:00:31", "What are some of the applications and systems powered by Java?", "Java powers enterprise web apps, big data pipelines with Hadoop, mobile apps on Android, and NASA's Maestro Mars Rover controller."], ["3", "Java's Compilation and Execution", "00:00:31", "00:00:48", "How does Java achieve platform independence?", "Java compiles to bytecode which can run on any operating system via the Java Virtual Machine (JVM)."], ["4", "Java's Language Features", "00:00:48", "00:01:09", "What high-level features does Java provide?", "Java provides garbage collection, runtime type checking, and reflection."], ["5", "Getting Started with Java", "00:01:09", "00:01:24", "What is required to start writing a Java program?", "Install the Java Development Kit (JDK) and create a file ending in .java with a class containing a main method."], ["6", "Java Syntax and Structure", "00:01:24", "00:01:59", "How do you define a variable and a method in Java?", "Define a variable with a type, name, and value. Define a method with the public and static keywords, a type, name, and return value."], ["7", "Compiling and Running Java Programs", "00:01:59", "00:02:10", "What are the steps to compile and run a Java program?", "Use the compiler to generate a .class file containing bytecode, then use the Java command to run it with the JVM."], ["8", "Conclusion and Call to Action", "00:02:10", "00:02:24", "What does the speaker promise if the video reaches 100,000 likes?", "The speaker promises to create a full Java tutorial."]]
