@@ -12,7 +12,7 @@ from videoqna.ResponseSchemas import MCQCollection, SubjectiveCollection
 def sanitize_filename(title):
     return re.sub(r'[^a-zA-Z0-9]', '_', title)
 
-def download_media_from_youtube(youtube_url, ffmpeg_path="/usr/bin/ffmpeg"):
+def download_media_from_youtube(youtube_url):
     # yt = YouTube(youtube_url)
     with yt_dlp.YoutubeDL() as ydl:
         info = ydl.extract_info(youtube_url, download=False)
@@ -27,7 +27,6 @@ def download_media_from_youtube(youtube_url, ffmpeg_path="/usr/bin/ffmpeg"):
         'yt-dlp',
         '-x',  # Extract audio only
         '--audio-format', 'wav',
-        '--ffmpeg-location', ffmpeg_path,
         '-o', audio_output_file,
         youtube_url
     ]

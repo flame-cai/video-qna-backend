@@ -3,7 +3,6 @@ import json
 import threading
 
 from flask import Blueprint, request
-from flask_cors import CORS
 from redis import Redis
 
 from videoqna.video_qna_generator import generate_video_qna
